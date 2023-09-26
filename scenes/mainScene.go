@@ -2,9 +2,6 @@ package scenes
 
 import (
 	"fmt"
-	"image"
-	"math/rand"
-	"os"
 	"pixel-game-1/models"
 	"sync"
 	"time"
@@ -26,7 +23,7 @@ func NewMainScene() *MainScene {
 }
 
 var (
-	sprites []models.CustomSprite
+	sprite  models.CustomSprite
 	mutex   sync.Mutex
 	counter int
 	timer   int
@@ -37,8 +34,7 @@ func handleLogic(bounds pixel.Rect) {
 		time.Sleep(1 * time.Second)
 
 		mutex.Lock()
-		sprites = []models.CustomSprite{}
-		sprites = append(sprites, createRandomSprite(bounds))
+		sprite = *models.CreateRandomSprite(bounds)
 		mutex.Unlock()
 	}
 }
@@ -49,12 +45,10 @@ func handleInput(win *pixelgl.Window) {
 			pos := win.MousePosition()
 
 			mutex.Lock()
-			for i := range sprites {
-				rect := sprites[i].Sprite.Frame().Moved(sprites[i].Matrix.Project(pixel.ZV))
-				if rect.Contains(pos) && !sprites[i].Clicked {
-					sprites[i].Clicked = true
-					counter++
-				}
+			rect := sprite.Sprite.Frame().Moved(sprite.Matrix.Project(pixel.ZV))
+			if rect.Contains(pos) && !sprite.Clicked {
+				sprite.Clicked = true
+				counter++
 			}
 			mutex.Unlock()
 		}
@@ -77,35 +71,6 @@ func handleTimer() {
 	}
 }
 
-func createRandomSprite(bounds pixel.Rect) models.CustomSprite {
-	pic, err := loadPicture("assets/images/ghost.png")
-
-	if err != nil {
-		panic(err)
-	}
-
-	sprite := pixel.NewSprite(pic, pic.Bounds())
-
-	matrix := pixel.IM
-	matrix = matrix.ScaledXY(pixel.ZV, pixel.V(.2, .2))
-	matrix = matrix.Moved(pixel.V(rand.Float64()*bounds.W(), rand.Float64()*bounds.H()))
-
-	return models.NewCustomSprite(sprite, matrix)
-}
-
-func loadPicture(path string) (pixel.Picture, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	img, _, err := image.Decode(file)
-	if err != nil {
-		return nil, err
-	}
-	return pixel.PictureDataFromImage(img), nil
-}
-
 func (s *MainScene) Run() {
 	cfg := pixelgl.WindowConfig{
 		Title:  "Pixel Rocks!",
@@ -124,14 +89,13 @@ func (s *MainScene) Run() {
 	atlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
 	txt := text.New(pixel.V(50, 50), atlas)
 
+	sprite = *models.CreateRandomSprite(cfg.Bounds)
 	for !win.Closed() {
 		win.Clear(colornames.Skyblue)
 
 		mutex.Lock()
-		for i := range sprites {
-			if !sprites[i].Clicked {
-				sprites[i].Sprite.Draw(win, sprites[i].Matrix)
-			}
+		if !sprite.Clicked {
+			sprite.Sprite.Draw(win, sprite.Matrix)
 		}
 
 		txt.Clear()
